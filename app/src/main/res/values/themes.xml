@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.AndroidDemo" parent="android:Theme.Material3.Dark">
-        <!-- Material 3 colors are handled in Compose via Theme.kt -->
+    <!-- Base theme - Material 3 colors are handled in Compose via Theme.kt -->
+    <style name="Theme.AndroidDemo" parent="android:Theme.Material">
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:fitsSystemWindows">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
 
-    <!-- Light theme variant if needed -->
-    <style name="Theme.AndroidDemo.Light" parent="android:Theme.Material3.Light">
+    <!-- Light theme variant -->
+    <style name="Theme.AndroidDemo.Light" parent="android:Theme.Material.Light">
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:fitsSystemWindows">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
 </resources>
