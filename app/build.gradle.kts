@@ -57,6 +57,8 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.kotlin.bom))
+
     // Core Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
