@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Counter App</string>
+    <string name="counter_title">Counter</string>
+    <string name="button_increment">+1</string>
+    <string name="button_decrement">-1</string>
+    <string name="button_reset">Reset</string>
+    <string name="counter_display">Counter Value</string>
+</resources>
