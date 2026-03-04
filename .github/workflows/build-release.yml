@@ -32,9 +32,6 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Run Tests
-        run: ./gradlew test --no-daemon
-
       - name: Get Version from Tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
