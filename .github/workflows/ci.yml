@@ -2,9 +2,10 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'codex/**' ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -41,7 +42,7 @@ jobs:
         continue-on-error: true
         # 使用 lintDebug 而不是 lint，快 10 倍
         # 只检查 debug 构建，跳过 release 检查
-        timeout-minutes: 2
+        timeout-minutes: 10
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon

@@ -11,7 +11,7 @@ import com.example.androidemo.ui.theme.AndroidDemoTheme
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class CounterApp : Application()
+class CounterApplication : Application()
 
 @Composable
 fun CounterApp() {
