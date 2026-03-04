@@ -1,0 +1,112 @@
+name: Build & Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Run Tests
+        run: ./gradlew test --no-daemon
+
+      - name: Get Version from Tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          RELEASE_NOTES="## Counter App $VERSION\n\n"
+          RELEASE_NOTES+="### Release Information\n"
+          RELEASE_NOTES+="- **Version**: $VERSION\n"
+          RELEASE_NOTES+="- **Build Date**: $(date '+%Y-%m-%d %H:%M:%S')\n"
+          RELEASE_NOTES+="- **Commit**: ${{ github.sha }}\n\n"
+          RELEASE_NOTES+="### APK Files\n"
+          RELEASE_NOTES+="- **app-release.apk**: Production release (size: $(du -h app/build/outputs/apk/release/app-release.apk | cut -f1))\n"
+          RELEASE_NOTES+="- **app-debug.apk**: Debug build (size: $(du -h app/build/outputs/apk/debug/app-debug.apk | cut -f1))\n\n"
+          RELEASE_NOTES+="### Features\n"
+          RELEASE_NOTES+="- Counter display with persistence\n"
+          RELEASE_NOTES+="- +1, -1, Reset buttons\n"
+          RELEASE_NOTES+="- Material Design 3 UI\n"
+          RELEASE_NOTES+="- Auto-update from GitHub releases\n\n"
+          RELEASE_NOTES+="### Installation\n"
+          RELEASE_NOTES+="1. Download the APK file below\n"
+          RELEASE_NOTES+="2. Enable \"Unknown sources\" in Settings → Security\n"
+          RELEASE_NOTES+="3. Install the APK on your Android device\n"
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
+          echo -e "$RELEASE_NOTES" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          release_name: Counter App ${{ steps.version.outputs.VERSION }}
+          body: ${{ env.RELEASE_NOTES }}
+          draft: false
+          prerelease: false
+        id: create_release
+
+      - name: Upload Release APK
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./app/build/outputs/apk/release/app-release.apk
+          asset_name: app-release-${{ steps.version.outputs.VERSION }}.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Debug APK
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./app/build/outputs/apk/debug/app-debug.apk
+          asset_name: app-debug-${{ steps.version.outputs.VERSION }}.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: app/build/reports/tests/testDebugUnitTest/
+          retention-days: 7
+
+      - name: Build Status Check
+        run: |
+          echo "✅ Release Build Successful!"
+          echo "Version: ${{ steps.version.outputs.VERSION }}"
+          echo "APK Location: app/build/outputs/apk/"
+          ls -lh app/build/outputs/apk/*/
