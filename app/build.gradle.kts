@@ -5,6 +5,15 @@ plugins {
     alias(libs.plugins.hilt.android)
 }
 
+configurations.configureEach {
+    resolutionStrategy.force(
+        "org.jetbrains.kotlin:kotlin-stdlib:${libs.versions.kotlin.get()}",
+        "org.jetbrains.kotlin:kotlin-stdlib-common:${libs.versions.kotlin.get()}",
+        "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${libs.versions.kotlin.get()}",
+        "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${libs.versions.kotlin.get()}"
+    )
+}
+
 android {
     namespace = "com.example.androidemo"
     compileSdk = 35
