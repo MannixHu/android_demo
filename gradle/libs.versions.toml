@@ -1,5 +1,5 @@
 [versions]
-android-gradle-plugin = "9.0.1"
+android-gradle-plugin = "8.2.2"
 kotlin = "2.0.0"
 androidx-core = "1.13.1"
 androidx-appcompat = "1.7.0"
@@ -28,8 +28,9 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "compose-ui" }
 compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "compose-ui" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview", version.ref = "compose-ui" }
+compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "compose-ui" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "compose-material3" }
-compose-material3-window-size-class = { group = "androidx.compose.material3", name = "material3-window-size-class", version.ref = "compose-material3" }
+compose-material3-window-size = { group = "androidx.compose.material3", name = "material3-window-size-class", version.ref = "compose-material3" }
 compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "compose-foundation" }
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "compose-ui" }
 compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "compose-ui" }
