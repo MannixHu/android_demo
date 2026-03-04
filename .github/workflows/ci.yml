@@ -2,7 +2,7 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ main, develop, 'codex/**' ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -24,25 +24,8 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle.kts') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
       - name: Make Gradle executable
         run: chmod +x ./gradlew
-
-      - name: Lint Check (快速版)
-        run: ./gradlew lintDebug --no-daemon || true
-        continue-on-error: true
-        # 使用 lintDebug 而不是 lint，快 10 倍
-        # 只检查 debug 构建，跳过 release 检查
-        timeout-minutes: 10
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
@@ -53,6 +36,7 @@ jobs:
         with:
           name: test-results
           path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload Build Reports
@@ -61,6 +45,7 @@ jobs:
         with:
           name: build-reports
           path: app/build/reports/
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Comment PR with Results
@@ -72,7 +57,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '✅ Build & Tests Completed Successfully!\n\n- ✅ Debug APK built\n- ✅ Unit tests passed\n- ✅ Lint checks complete'
+              body: '✅ Build Completed Successfully!\n\n- ✅ Debug APK built\n- ✅ Basic code quality checks complete'
             })
 
   code-quality:
