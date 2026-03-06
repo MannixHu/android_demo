@@ -69,21 +69,47 @@ jobs:
       - name: Create GitHub Release
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
+          REPO="${{ github.repository }}"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
 
-          # Create release with assets using gh CLI
-          gh release create "$VERSION" \
-            --title "Counter App $VERSION" \
-            --notes "Android Counter App Release $VERSION" \
-            app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/debug/app-debug.apk || \
-          (echo "Release creation failed, trying alternative..."; \
-           gh release upload "$VERSION" \
-             app/build/outputs/apk/release/app-release.apk \
-             app/build/outputs/apk/debug/app-debug.apk)
+          # Create release
+          RELEASE_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token $TOKEN" \
+            -H "Content-Type: application/json" \
+            https://api.github.com/repos/$REPO/releases \
+            -d "{
+              \"tag_name\": \"$VERSION\",
+              \"name\": \"Counter App $VERSION\",
+              \"body\": \"Android Counter App Release\",
+              \"draft\": false,
+              \"prerelease\": false
+            }")
+
+          UPLOAD_URL=$(echo "$RELEASE_RESPONSE" | jq -r '.upload_url')
+          if [ -z "$UPLOAD_URL" ] || [ "$UPLOAD_URL" = "null" ]; then
+            echo "❌ Failed to create release"
+            echo "$RELEASE_RESPONSE" | jq '.'
+            exit 1
+          fi
+
+          # Remove {?name,label} from upload URL
+          UPLOAD_URL="${UPLOAD_URL%\{*}"
+
+          # Upload release APK
+          curl -s -X POST \
+            -H "Authorization: token $TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @app/build/outputs/apk/release/app-release.apk \
+            "$UPLOAD_URL?name=app-release.apk"
+
+          # Upload debug APK
+          curl -s -X POST \
+            -H "Authorization: token $TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @app/build/outputs/apk/debug/app-debug.apk \
+            "$UPLOAD_URL?name=app-debug.apk"
 
           echo "✅ Release created with APK files"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Status Check
         run: |
