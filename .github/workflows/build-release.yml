@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,9 +42,63 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: Prepare APK Assets
+        id: assets
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          mkdir -p dist
+
+          RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+
+          if [ -z "$RELEASE_APK" ]; then
+            echo "ERROR: no release APK found"
+            ls -la app/build/outputs/apk/release || true
+            exit 1
+          fi
+
+          if [ -z "$DEBUG_APK" ]; then
+            echo "ERROR: no debug APK found"
+            ls -la app/build/outputs/apk/debug || true
+            exit 1
+          fi
+
+          PRIMARY_ASSET="dist/counter-app-${VERSION}.apk"
+          DEBUG_ASSET="dist/counter-app-debug-${VERSION}.apk"
+
+          cp "$DEBUG_APK" "$DEBUG_ASSET"
+
+          if printf '%s' "$RELEASE_APK" | grep -qi 'unsigned'; then
+            cp "$DEBUG_APK" "$PRIMARY_ASSET"
+            UNSIGNED_ASSET="dist/counter-app-release-unsigned-${VERSION}.apk"
+            cp "$RELEASE_APK" "$UNSIGNED_ASSET"
+            echo "PRIMARY_ASSET_NOTE=Primary installable APK (debug-signed fallback because the release variant is unsigned)." >> "$GITHUB_OUTPUT"
+            echo "UNSIGNED_ASSET=$UNSIGNED_ASSET" >> "$GITHUB_OUTPUT"
+          else
+            cp "$RELEASE_APK" "$PRIMARY_ASSET"
+            echo "PRIMARY_ASSET_NOTE=Primary installable APK (signed release build)." >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "PRIMARY_ASSET=$PRIMARY_ASSET" >> "$GITHUB_OUTPUT"
+          echo "DEBUG_ASSET=$DEBUG_ASSET" >> "$GITHUB_OUTPUT"
+
+          echo "Prepared assets:"
+          ls -lh dist
+
       - name: Create Release Notes
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
+          PRIMARY_ASSET_NAME="$(basename "${{ steps.assets.outputs.PRIMARY_ASSET }}")"
+          DEBUG_ASSET_NAME="$(basename "${{ steps.assets.outputs.DEBUG_ASSET }}")"
+          PRIMARY_ASSET_NOTE="${{ steps.assets.outputs.PRIMARY_ASSET_NOTE }}"
+          UNSIGNED_ASSET="${{ steps.assets.outputs.UNSIGNED_ASSET }}"
+
+          UNSIGNED_LINE=""
+          if [ -n "$UNSIGNED_ASSET" ]; then
+            UNSIGNED_LINE="- **$(basename "$UNSIGNED_ASSET")**: Raw unsigned release variant (not directly installable)"
+          fi
+
           cat > /tmp/release_notes.md << NOTES
           ## Counter App $VERSION
 
@@ -51,8 +108,9 @@ jobs:
           - **Commit**: ${{ github.sha }}
 
           ### APK Files
-          - **app-release.apk**: Production release
-          - **app-debug.apk**: Debug build
+          - **$PRIMARY_ASSET_NAME**: $PRIMARY_ASSET_NOTE
+          - **$DEBUG_ASSET_NAME**: Raw debug build
+          $UNSIGNED_LINE
 
           ### Features
           - Counter display with persistence
@@ -68,34 +126,27 @@ jobs:
 
       - name: Create Release and Upload APKs
         run: |
-          set -e
+          set -euo pipefail
           VERSION="${{ steps.version.outputs.VERSION }}"
+          PRIMARY_ASSET="${{ steps.assets.outputs.PRIMARY_ASSET }}"
+          DEBUG_ASSET="${{ steps.assets.outputs.DEBUG_ASSET }}"
+          UNSIGNED_ASSET="${{ steps.assets.outputs.UNSIGNED_ASSET }}"
 
-          # Verify APK files exist
-          if [ ! -f "app/build/outputs/apk/release/app-release.apk" ]; then
-            echo "ERROR: app-release.apk not found!"
-            ls -la app/build/outputs/apk/ 2>/dev/null || echo "apk directory doesn't exist"
-            exit 1
-          fi
-
-          if [ ! -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
-            echo "ERROR: app-debug.apk not found!"
-            exit 1
+          ASSETS=("$PRIMARY_ASSET" "$DEBUG_ASSET")
+          if [ -n "$UNSIGNED_ASSET" ]; then
+            ASSETS+=("$UNSIGNED_ASSET")
           fi
 
           echo "Creating release $VERSION with APK files..."
 
-          # Try to create release first (will fail if it exists)
-          gh release create "$VERSION" \
-            --title "Counter App $VERSION" \
-            --notes "Android Counter App v$VERSION" \
-            app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/debug/app-debug.apk || \
-          # If release exists, upload files to it
-          gh release upload "$VERSION" \
-            app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/debug/app-debug.apk \
-            --clobber
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" "${ASSETS[@]}" --clobber
+          else
+            gh release create "$VERSION" \
+              --title "Counter App $VERSION" \
+              --notes-file /tmp/release_notes.md \
+              "${ASSETS[@]}"
+          fi
 
           echo "✅ Release created/updated with APK files"
         env:
@@ -105,5 +156,5 @@ jobs:
         run: |
           echo "✅ Release Build Successful!"
           echo "Version: ${{ steps.version.outputs.VERSION }}"
-          echo "APK Location: app/build/outputs/apk/"
-          ls -lh app/build/outputs/apk/*/
+          echo "Prepared release assets:"
+          ls -lh dist

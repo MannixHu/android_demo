@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import androidx.core.content.FileProvider
+import com.example.androidemo.data.remote.GithubAsset
 import com.example.androidemo.data.remote.UpdateService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,7 +32,7 @@ class UpdateManager(
             val latestVersion = latestRelease.tag_name.removePrefix("v")
             val hasUpdate = isNewerVersion(latestVersion, currentVersion)
 
-            val apkAsset = latestRelease.assets.find { it.name.endsWith(".apk") }
+            val apkAsset = selectPreferredApkAsset(latestRelease.assets)
             val downloadUrl = apkAsset?.browser_download_url ?: ""
             val fileSize = apkAsset?.size ?: 0L
 
@@ -52,6 +53,17 @@ class UpdateManager(
                 hasUpdate = false
             )
         }
+    }
+
+    private fun selectPreferredApkAsset(assets: List<GithubAsset>): GithubAsset? {
+        val apkAssets = assets.filter { it.name.endsWith(".apk", ignoreCase = true) }
+
+        return apkAssets.firstOrNull {
+            !it.name.contains("debug", ignoreCase = true) &&
+                    !it.name.contains("unsigned", ignoreCase = true)
+        } ?: apkAssets.firstOrNull {
+            it.name.contains("debug", ignoreCase = true)
+        } ?: apkAssets.firstOrNull()
     }
 
     fun downloadApk(downloadUrl: String, onDownloadComplete: (String) -> Unit) {
