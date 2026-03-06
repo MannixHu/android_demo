@@ -72,10 +72,7 @@ jobs:
           tag: ${{ steps.version.outputs.VERSION }}
           name: Counter App ${{ steps.version.outputs.VERSION }}
           body: "Android Counter App Release"
-          artifacts: |
-            app/build/outputs/apk/release/app-release.apk,
-            app/build/outputs/apk/debug/app-debug.apk
-          artifactContentType: application/vnd.android.package-archive
+          artifacts: app/build/outputs/apk/release/app-release.apk,app/build/outputs/apk/debug/app-debug.apk
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
