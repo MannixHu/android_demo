@@ -52,103 +52,70 @@ jobs:
           RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
           DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)"
 
-          if [ -z "$RELEASE_APK" ]; then
-            echo "ERROR: no release APK found"
-            ls -la app/build/outputs/apk/release || true
-            exit 1
-          fi
-
-          if [ -z "$DEBUG_APK" ]; then
-            echo "ERROR: no debug APK found"
-            ls -la app/build/outputs/apk/debug || true
-            exit 1
-          fi
-
-          PRIMARY_ASSET="dist/counter-app-${VERSION}.apk"
-          DEBUG_ASSET="dist/counter-app-debug-${VERSION}.apk"
-
-          cp "$DEBUG_APK" "$DEBUG_ASSET"
-
-          if printf '%s' "$RELEASE_APK" | grep -qi 'unsigned'; then
-            cp "$DEBUG_APK" "$PRIMARY_ASSET"
-            UNSIGNED_ASSET="dist/counter-app-release-unsigned-${VERSION}.apk"
-            cp "$RELEASE_APK" "$UNSIGNED_ASSET"
-            echo "PRIMARY_ASSET_NOTE=Primary installable APK (debug-signed fallback because the release variant is unsigned)." >> "$GITHUB_OUTPUT"
-            echo "UNSIGNED_ASSET=$UNSIGNED_ASSET" >> "$GITHUB_OUTPUT"
+          # Use release APK if available, otherwise fallback to debug APK
+          if [ -n "$RELEASE_APK" ] && ! printf '%s' "$RELEASE_APK" | grep -qi 'unsigned'; then
+            PRIMARY_APK="$RELEASE_APK"
+            BUILD_TYPE="release"
+          elif [ -n "$DEBUG_APK" ]; then
+            PRIMARY_APK="$DEBUG_APK"
+            BUILD_TYPE="debug"
           else
-            cp "$RELEASE_APK" "$PRIMARY_ASSET"
-            echo "PRIMARY_ASSET_NOTE=Primary installable APK (signed release build)." >> "$GITHUB_OUTPUT"
+            echo "ERROR: No suitable APK found"
+            exit 1
           fi
 
-          echo "PRIMARY_ASSET=$PRIMARY_ASSET" >> "$GITHUB_OUTPUT"
-          echo "DEBUG_ASSET=$DEBUG_ASSET" >> "$GITHUB_OUTPUT"
+          ASSET_PATH="dist/counter-app-${VERSION}.apk"
+          cp "$PRIMARY_APK" "$ASSET_PATH"
 
-          echo "Prepared assets:"
-          ls -lh dist
+          echo "PRIMARY_APK=$ASSET_PATH" >> "$GITHUB_OUTPUT"
+          echo "BUILD_TYPE=$BUILD_TYPE" >> "$GITHUB_OUTPUT"
+
+          echo "Prepared APK (${BUILD_TYPE}):"
+          ls -lh "$ASSET_PATH"
 
       - name: Create Release Notes
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          PRIMARY_ASSET_NAME="$(basename "${{ steps.assets.outputs.PRIMARY_ASSET }}")"
-          DEBUG_ASSET_NAME="$(basename "${{ steps.assets.outputs.DEBUG_ASSET }}")"
-          PRIMARY_ASSET_NOTE="${{ steps.assets.outputs.PRIMARY_ASSET_NOTE }}"
-          UNSIGNED_ASSET="${{ steps.assets.outputs.UNSIGNED_ASSET }}"
-
-          UNSIGNED_LINE=""
-          if [ -n "$UNSIGNED_ASSET" ]; then
-            UNSIGNED_LINE="- **$(basename "$UNSIGNED_ASSET")**: Raw unsigned release variant (not directly installable)"
-          fi
+          BUILD_TYPE="${{ steps.assets.outputs.BUILD_TYPE }}"
+          APK_NAME="counter-app-${VERSION}.apk"
 
           cat > /tmp/release_notes.md << NOTES
           ## Counter App $VERSION
 
           ### Release Information
           - **Version**: $VERSION
+          - **Build Type**: $BUILD_TYPE
           - **Build Date**: $(date '+%Y-%m-%d %H:%M:%S')
-          - **Commit**: ${{ github.sha }}
-
-          ### APK Files
-          - **$PRIMARY_ASSET_NAME**: $PRIMARY_ASSET_NOTE
-          - **$DEBUG_ASSET_NAME**: Raw debug build
-          $UNSIGNED_LINE
 
           ### Features
           - Counter display with persistence
           - +1, -1, Reset buttons
           - Material Design 3 UI
-          - Auto-update from GitHub releases
 
           ### Installation
-          1. Download the APK file below
+          1. Download **$APK_NAME** below
           2. Enable "Unknown sources" in Settings → Security
           3. Install the APK on your Android device
           NOTES
 
-      - name: Create Release and Upload APKs
+      - name: Create Release and Upload APK
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.VERSION }}"
-          PRIMARY_ASSET="${{ steps.assets.outputs.PRIMARY_ASSET }}"
-          DEBUG_ASSET="${{ steps.assets.outputs.DEBUG_ASSET }}"
-          UNSIGNED_ASSET="${{ steps.assets.outputs.UNSIGNED_ASSET }}"
+          APK_FILE="${{ steps.assets.outputs.PRIMARY_APK }}"
 
-          ASSETS=("$PRIMARY_ASSET" "$DEBUG_ASSET")
-          if [ -n "$UNSIGNED_ASSET" ]; then
-            ASSETS+=("$UNSIGNED_ASSET")
-          fi
-
-          echo "Creating release $VERSION with APK files..."
+          echo "Creating release $VERSION with APK..."
 
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            gh release upload "$VERSION" "${ASSETS[@]}" --clobber
+            gh release upload "$VERSION" "$APK_FILE" --clobber
           else
             gh release create "$VERSION" \
               --title "Counter App $VERSION" \
               --notes-file /tmp/release_notes.md \
-              "${ASSETS[@]}"
+              "$APK_FILE"
           fi
 
-          echo "✅ Release created/updated with APK files"
+          echo "✅ Release created/updated with APK"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
