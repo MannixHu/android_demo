@@ -65,44 +65,18 @@ jobs:
           echo "EOF" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
-          release_name: Counter App ${{ steps.version.outputs.VERSION }}
+          name: Counter App ${{ steps.version.outputs.VERSION }}
           body: ${{ env.RELEASE_NOTES }}
           draft: false
           prerelease: false
-        id: create_release
-
-      - name: Upload Release APK
-        uses: actions/upload-release-asset@v1
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./app/build/outputs/apk/release/app-release.apk
-          asset_name: app-release-${{ steps.version.outputs.VERSION }}.apk
-          asset_content_type: application/vnd.android.package-archive
-
-      - name: Upload Debug APK
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./app/build/outputs/apk/debug/app-debug.apk
-          asset_name: app-debug-${{ steps.version.outputs.VERSION }}.apk
-          asset_content_type: application/vnd.android.package-archive
-
-      - name: Upload Test Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-reports
-          path: app/build/reports/tests/testDebugUnitTest/
-          retention-days: 7
 
       - name: Build Status Check
         run: |
