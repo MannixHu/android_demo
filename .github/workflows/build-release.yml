@@ -66,40 +66,37 @@ jobs:
           3. Install the APK on your Android device
           NOTES
 
-      - name: Upload APK Files to Release
+      - name: Create Release and Upload APKs
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$VERSION" \
-            | jq '.id')
+          set -x  # Enable debug output
 
-          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
-            echo "Release not found, creating it..."
-            RESPONSE=$(curl -s -X POST \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              "https://api.github.com/repos/${{ github.repository }}/releases" \
-              -d "{\"tag_name\":\"$VERSION\",\"name\":\"Counter App $VERSION\",\"body\":\"Android Counter App Release\",\"draft\":false,\"prerelease\":false}")
-            RELEASE_ID=$(echo "$RESPONSE" | jq '.id')
+          # Check if APK files exist
+          if [ ! -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            echo "ERROR: app-release.apk not found!"
+            ls -la app/build/outputs/apk/
+            exit 1
           fi
 
-          echo "Release ID: $RELEASE_ID"
+          if [ ! -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            echo "ERROR: app-debug.apk not found!"
+            ls -la app/build/outputs/apk/
+            exit 1
+          fi
 
-          # Upload release APK
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @app/build/outputs/apk/release/app-release.apk \
-            "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=app-release.apk"
+          # Create release with gh CLI (simpler and more reliable)
+          echo "Creating release $VERSION..."
+          gh release create "$VERSION" \
+            --title "Counter App $VERSION" \
+            --notes "Android Counter App v$VERSION" \
+            app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/apk/debug/app-debug.apk || \
+          (echo "Release creation failed or already exists"; exit 1)
 
-          # Upload debug APK
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @app/build/outputs/apk/debug/app-debug.apk \
-            "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=app-debug.apk"
-
-          echo "✅ APK files uploaded"
+          echo "✅ Release created with APK files"
 
       - name: Build Status Check
         run: |
