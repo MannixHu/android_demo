@@ -68,18 +68,36 @@ jobs:
 
       - name: Create GitHub Release
         run: |
-          curl -X POST \
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          BODY="Release build for Counter App $VERSION"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/json" \
             https://api.github.com/repos/${{ github.repository }}/releases \
-            -d '{
-              "tag_name": "${{ steps.version.outputs.VERSION }}",
-              "name": "Counter App ${{ steps.version.outputs.VERSION }}",
-              "body": "Release build for version ${{ steps.version.outputs.VERSION }}",
-              "draft": false,
-              "prerelease": false
-            }'
-          echo "Release created successfully"
+            -d @- << EOF
+          {
+            "tag_name": "$VERSION",
+            "name": "Counter App $VERSION",
+            "body": "$BODY",
+            "draft": false,
+            "prerelease": false
+          }
+          EOF
+          )
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" = "201" ]; then
+            echo "✅ Release created successfully"
+          else
+            echo "❌ Release creation failed"
+            exit 1
+          fi
 
       - name: Build Status Check
         run: |
