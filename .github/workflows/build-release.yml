@@ -66,50 +66,35 @@ jobs:
           3. Install the APK on your Android device
           NOTES
 
-      - name: Debug: List APK files
+      - name: List APK files
         run: |
-          echo "=== Checking APK output directory ==="
-          find app/build/outputs -name "*.apk" -type f || echo "No APK files found"
-          echo ""
-          echo "=== Full directory structure ==="
-          ls -la app/build/outputs/ || echo "outputs directory doesn't exist"
+          echo "=== APK files ===="
+          find app/build/outputs -name "*.apk" -type f
 
       - name: Create Release and Upload APKs
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          VERSION: ${{ steps.version.outputs.VERSION }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -e
           VERSION="${{ steps.version.outputs.VERSION }}"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          REPO="${{ github.repository }}"
 
-          # Find APK files
-          RELEASE_APK=$(find app/build/outputs -name "app-release.apk" -type f)
-          DEBUG_APK=$(find app/build/outputs -name "app-debug.apk" -type f)
-
-          if [ -z "$RELEASE_APK" ]; then
-            echo "ERROR: app-release.apk not found!"
+          # Ensure files exist
+          if [ ! -f "app/build/outputs/apk/release/app-release.apk" ] || [ ! -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            echo "ERROR: APK files not found!"
             exit 1
           fi
 
-          if [ -z "$DEBUG_APK" ]; then
-            echo "ERROR: app-debug.apk not found!"
-            exit 1
-          fi
-
-          echo "Found APKs:"
-          echo "  Release: $RELEASE_APK"
-          echo "  Debug:   $DEBUG_APK"
-
-          # Create release with gh CLI
-          echo "Creating release $VERSION..."
+          # Use gh to create release and upload files
           gh release create "$VERSION" \
             --title "Counter App $VERSION" \
             --notes "Android Counter App v$VERSION" \
-            "$RELEASE_APK" \
-            "$DEBUG_APK"
+            app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/apk/debug/app-debug.apk \
+            --repo "$REPO"
 
           echo "✅ Release created with APK files"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Status Check
         run: |
