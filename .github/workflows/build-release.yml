@@ -40,35 +40,37 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create Release Notes
-        id: release_notes
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          RELEASE_NOTES="## Counter App $VERSION\n\n"
-          RELEASE_NOTES+="### Release Information\n"
-          RELEASE_NOTES+="- **Version**: $VERSION\n"
-          RELEASE_NOTES+="- **Build Date**: $(date '+%Y-%m-%d %H:%M:%S')\n"
-          RELEASE_NOTES+="- **Commit**: ${{ github.sha }}\n\n"
-          RELEASE_NOTES+="### APK Files\n"
-          RELEASE_NOTES+="- **app-release.apk**: Production release (size: $(du -h app/build/outputs/apk/release/app-release.apk | cut -f1))\n"
-          RELEASE_NOTES+="- **app-debug.apk**: Debug build (size: $(du -h app/build/outputs/apk/debug/app-debug.apk | cut -f1))\n\n"
-          RELEASE_NOTES+="### Features\n"
-          RELEASE_NOTES+="- Counter display with persistence\n"
-          RELEASE_NOTES+="- +1, -1, Reset buttons\n"
-          RELEASE_NOTES+="- Material Design 3 UI\n"
-          RELEASE_NOTES+="- Auto-update from GitHub releases\n\n"
-          RELEASE_NOTES+="### Installation\n"
-          RELEASE_NOTES+="1. Download the APK file below\n"
-          RELEASE_NOTES+="2. Enable \"Unknown sources\" in Settings → Security\n"
-          RELEASE_NOTES+="3. Install the APK on your Android device\n"
-          echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
-          echo -e "$RELEASE_NOTES" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          cat > /tmp/release_notes.md << 'NOTES'
+          ## Counter App $VERSION
+
+          ### Release Information
+          - **Version**: $VERSION
+          - **Build Date**: $(date '+%Y-%m-%d %H:%M:%S')
+          - **Commit**: ${{ github.sha }}
+
+          ### APK Files
+          - **app-release.apk**: Production release
+          - **app-debug.apk**: Debug build
+
+          ### Features
+          - Counter display with persistence
+          - +1, -1, Reset buttons
+          - Material Design 3 UI
+          - Auto-update from GitHub releases
+
+          ### Installation
+          1. Download the APK file below
+          2. Enable "Unknown sources" in Settings → Security
+          3. Install the APK on your Android device
+          NOTES
 
       - name: Create GitHub Release
         run: |
           gh release create "${{ steps.version.outputs.VERSION }}" \
             --title "Counter App ${{ steps.version.outputs.VERSION }}" \
-            --notes "${{ env.RELEASE_NOTES }}" \
+            --notes-file /tmp/release_notes.md \
             app/build/outputs/apk/release/app-release.apk \
             app/build/outputs/apk/debug/app-debug.apk
         env:
