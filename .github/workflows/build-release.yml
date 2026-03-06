@@ -67,14 +67,21 @@ jobs:
           NOTES
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/apk/debug/app-debug.apk
-          body: "Android Counter App Release"
-          draft: false
-          prerelease: false
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          # Create release with assets using gh CLI
+          gh release create "$VERSION" \
+            --title "Counter App $VERSION" \
+            --notes "Android Counter App Release $VERSION" \
+            app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/apk/debug/app-debug.apk || \
+          (echo "Release creation failed, trying alternative..."; \
+           gh release upload "$VERSION" \
+             app/build/outputs/apk/release/app-release.apk \
+             app/build/outputs/apk/debug/app-debug.apk)
+
+          echo "✅ Release created with APK files"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
