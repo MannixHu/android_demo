@@ -67,37 +67,18 @@ jobs:
           NOTES
 
       - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          BODY="Release build for Counter App $VERSION"
 
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            https://api.github.com/repos/${{ github.repository }}/releases \
-            -d @- << EOF
-          {
-            "tag_name": "$VERSION",
-            "name": "Counter App $VERSION",
-            "body": "$BODY",
-            "draft": false,
-            "prerelease": false
-          }
-          EOF
-          )
+          gh release create "$VERSION" \
+            --title "Counter App $VERSION" \
+            --notes "Release build for Counter App $VERSION" \
+            app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/apk/debug/app-debug.apk
 
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
-
-          echo "HTTP Status: $HTTP_CODE"
-          echo "Response: $BODY"
-
-          if [ "$HTTP_CODE" = "201" ]; then
-            echo "✅ Release created successfully"
-          else
-            echo "❌ Release creation failed"
-            exit 1
-          fi
+          echo "✅ Release created with APK files"
 
       - name: Build Status Check
         run: |
