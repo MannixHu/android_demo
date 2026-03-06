@@ -66,16 +66,40 @@ jobs:
           3. Install the APK on your Android device
           NOTES
 
-      - name: Create GitHub Release with APK Files
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ steps.version.outputs.VERSION }}
-          name: Counter App ${{ steps.version.outputs.VERSION }}
-          body: "Android Counter App Release"
-          artifacts: app/build/outputs/apk/release/app-release.apk,app/build/outputs/apk/debug/app-debug.apk
-          draft: false
-          prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload APK Files to Release
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$VERSION" \
+            | jq '.id')
+
+          if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+            echo "Release not found, creating it..."
+            RESPONSE=$(curl -s -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/${{ github.repository }}/releases" \
+              -d "{\"tag_name\":\"$VERSION\",\"name\":\"Counter App $VERSION\",\"body\":\"Android Counter App Release\",\"draft\":false,\"prerelease\":false}")
+            RELEASE_ID=$(echo "$RESPONSE" | jq '.id')
+          fi
+
+          echo "Release ID: $RELEASE_ID"
+
+          # Upload release APK
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @app/build/outputs/apk/release/app-release.apk \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=app-release.apk"
+
+          # Upload debug APK
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @app/build/outputs/apk/debug/app-debug.apk \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=app-debug.apk"
+
+          echo "✅ APK files uploaded"
 
       - name: Build Status Check
         run: |
