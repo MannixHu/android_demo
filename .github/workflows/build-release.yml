@@ -66,7 +66,7 @@ jobs:
           3. Install the APK on your Android device
           NOTES
 
-      - name: Upload APKs to Release
+      - name: Create Release and Upload APKs
         run: |
           set -e
           VERSION="${{ steps.version.outputs.VERSION }}"
@@ -74,7 +74,7 @@ jobs:
           # Verify APK files exist
           if [ ! -f "app/build/outputs/apk/release/app-release.apk" ]; then
             echo "ERROR: app-release.apk not found!"
-            ls -la app/build/outputs/apk/ || echo "apk directory doesn't exist"
+            ls -la app/build/outputs/apk/ 2>/dev/null || echo "apk directory doesn't exist"
             exit 1
           fi
 
@@ -83,14 +83,21 @@ jobs:
             exit 1
           fi
 
-          # Upload files to the release (release should exist from tag push)
-          echo "Uploading APKs to release $VERSION..."
+          echo "Creating release $VERSION with APK files..."
+
+          # Try to create release first (will fail if it exists)
+          gh release create "$VERSION" \
+            --title "Counter App $VERSION" \
+            --notes "Android Counter App v$VERSION" \
+            app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/apk/debug/app-debug.apk || \
+          # If release exists, upload files to it
           gh release upload "$VERSION" \
             app/build/outputs/apk/release/app-release.apk \
             app/build/outputs/apk/debug/app-debug.apk \
             --clobber
 
-          echo "✅ APKs uploaded to release"
+          echo "✅ Release created/updated with APK files"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
