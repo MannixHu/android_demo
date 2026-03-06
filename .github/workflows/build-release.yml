@@ -68,7 +68,8 @@ jobs:
 
       - name: Create GitHub Release with APK Files
         run: python3 << 'PYTHON_EOF'
-import requests
+import urllib.request
+import urllib.parse
 import json
 import os
 
@@ -77,10 +78,6 @@ REPO = "${{ github.repository }}"
 TOKEN = "${{ secrets.GITHUB_TOKEN }}"
 
 api_url = f"https://api.github.com/repos/{REPO}/releases"
-headers = {
-    "Authorization": f"token {TOKEN}",
-    "Accept": "application/vnd.github.v3+json"
-}
 
 # Create release
 release_data = {
@@ -92,15 +89,41 @@ release_data = {
 }
 
 print(f"Creating release {VERSION}...")
-response = requests.post(api_url, json=release_data, headers=headers)
+req = urllib.request.Request(
+    api_url,
+    data=json.dumps(release_data).encode(),
+    headers={
+        "Authorization": f"token {TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+    },
+    method="POST"
+)
 
-if response.status_code not in [201, 422]:  # 201 = created, 422 = already exists
-    print(f"Failed to create release: {response.status_code}")
-    print(response.json())
-    exit(1)
-
-release = response.json()
-upload_url = release.get("upload_url", "").rstrip("}{?name,label}")
+try:
+    with urllib.request.urlopen(req) as response:
+        release = json.loads(response.read())
+        upload_url = release.get("upload_url", "").split("{")[0]
+        print(f"✅ Release created")
+except urllib.error.HTTPError as e:
+    if e.code == 422:
+        print("Release already exists")
+        # Try to get existing release
+        try:
+            req2 = urllib.request.Request(
+                f"{api_url}/tags/{VERSION}",
+                headers={"Authorization": f"token {TOKEN}"}
+            )
+            with urllib.request.urlopen(req2) as response:
+                release = json.loads(response.read())
+                upload_url = release.get("upload_url", "").split("{")[0]
+        except:
+            print("Could not get release details")
+            exit(1)
+    else:
+        print(f"Failed to create release: {e.code}")
+        print(e.read().decode())
+        exit(1)
 
 if not upload_url:
     print("No upload URL found")
@@ -114,26 +137,28 @@ apk_files = [
 
 for file_path, file_name in apk_files:
     if not os.path.exists(file_path):
-        print(f"❌ File not found: {file_path}")
+        print(f"File not found: {file_path}")
         continue
 
     print(f"Uploading {file_name}...")
     with open(file_path, "rb") as f:
-        upload_headers = {
-            "Authorization": f"token {TOKEN}",
-            "Content-Type": "application/vnd.android.package-archive"
-        }
-        upload_response = requests.post(
+        data = f.read()
+        upload_req = urllib.request.Request(
             f"{upload_url}?name={file_name}",
-            data=f,
-            headers=upload_headers
+            data=data,
+            headers={
+                "Authorization": f"token {TOKEN}",
+                "Content-Type": "application/vnd.android.package-archive"
+            },
+            method="POST"
         )
-        if upload_response.status_code == 201:
-            print(f"✅ Uploaded {file_name}")
-        else:
-            print(f"❌ Failed to upload {file_name}: {upload_response.status_code}")
+        try:
+            with urllib.request.urlopen(upload_req) as response:
+                print(f"✅ Uploaded {file_name}")
+        except urllib.error.HTTPError as e:
+            print(f"Failed to upload {file_name}: {e.code}")
 
-print("✅ Release created with APK files")
+print("✅ Release complete")
 PYTHON_EOF
 
       - name: Build Status Check
