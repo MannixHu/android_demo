@@ -66,33 +66,31 @@ jobs:
           3. Install the APK on your Android device
           NOTES
 
-      - name: List APK files
-        run: |
-          echo "=== APK files ===="
-          find app/build/outputs -name "*.apk" -type f
-
-      - name: Create Release and Upload APKs
+      - name: Upload APKs to Release
         run: |
           set -e
           VERSION="${{ steps.version.outputs.VERSION }}"
-          TOKEN="${{ secrets.GITHUB_TOKEN }}"
-          REPO="${{ github.repository }}"
 
-          # Ensure files exist
-          if [ ! -f "app/build/outputs/apk/release/app-release.apk" ] || [ ! -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
-            echo "ERROR: APK files not found!"
+          # Verify APK files exist
+          if [ ! -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            echo "ERROR: app-release.apk not found!"
+            ls -la app/build/outputs/apk/ || echo "apk directory doesn't exist"
             exit 1
           fi
 
-          # Use gh to create release and upload files
-          gh release create "$VERSION" \
-            --title "Counter App $VERSION" \
-            --notes "Android Counter App v$VERSION" \
+          if [ ! -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            echo "ERROR: app-debug.apk not found!"
+            exit 1
+          fi
+
+          # Upload files to the release (release should exist from tag push)
+          echo "Uploading APKs to release $VERSION..."
+          gh release upload "$VERSION" \
             app/build/outputs/apk/release/app-release.apk \
             app/build/outputs/apk/debug/app-debug.apk \
-            --repo "$REPO"
+            --clobber
 
-          echo "✅ Release created with APK files"
+          echo "✅ APKs uploaded to release"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
