@@ -10,6 +10,7 @@ import com.example.androidemo.domain.usecase.DecrementCounterUseCase
 import com.example.androidemo.domain.usecase.GetCounterUseCase
 import com.example.androidemo.domain.usecase.IncrementCounterUseCase
 import com.example.androidemo.domain.usecase.ResetCounterUseCase
+import com.example.androidemo.util.AppVersionProvider
 import com.example.androidemo.util.UpdateManager
 import dagger.Module
 import dagger.Provides
@@ -92,5 +93,11 @@ object AppModule {
     @Singleton
     fun provideCheckUpdateUseCase(updateManager: UpdateManager): CheckUpdateUseCase {
         return CheckUpdateUseCase(updateManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAppVersionProvider(@ApplicationContext context: Context): AppVersionProvider {
+        return AppVersionProvider(context)
     }
 }

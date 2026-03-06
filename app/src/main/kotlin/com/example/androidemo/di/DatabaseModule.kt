@@ -2,6 +2,8 @@ package com.example.androidemo.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.androidemo.data.local.CounterDatabase
 import com.example.androidemo.data.local.CounterDao
 import dagger.Module
@@ -24,7 +26,18 @@ object DatabaseModule {
             context,
             CounterDatabase::class.java,
             "counter_database"
-        ).build()
+        )
+            .addCallback(object : RoomDatabase.Callback() {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    super.onCreate(db)
+                    // Initialize default counter value on first launch
+                    db.execSQL(
+                        "INSERT INTO counter_table (id, value, timestamp) " +
+                        "VALUES (1, 0, ${System.currentTimeMillis()})"
+                    )
+                }
+            })
+            .build()
     }
 
     @Provides

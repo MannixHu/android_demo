@@ -6,4 +6,22 @@
     <string name="button_decrement">-1</string>
     <string name="button_reset">Reset</string>
     <string name="counter_display">Counter Value</string>
+
+    <!-- Update feature strings -->
+    <string name="update_title">新版本可用</string>
+    <string name="update_version">版本: %s</string>
+    <string name="update_size">大小: %s</string>
+    <string name="update_release_notes">更新内容:</string>
+    <string name="button_download">下载更新</string>
+    <string name="button_skip">跳过此版本</string>
+    <string name="button_install">立即安装</string>
+    <string name="button_later">稍后</string>
+    <string name="button_cancel">取消</string>
+    <string name="checking_update">检查更新中</string>
+    <string name="downloading">下载中</string>
+    <string name="downloading_message">正在下载新版本...</string>
+    <string name="download_complete">下载完成</string>
+    <string name="download_complete_message">新版本已下载，点击安装进行更新。</string>
+    <string name="update_error">错误</string>
+    <string name="check_update">检查更新</string>
 </resources>

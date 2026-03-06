@@ -18,7 +18,7 @@ class CounterRepositoryImpl(
     override suspend fun incrementCounter() {
         val current = counterLocalDataSource.getCounter()
             .firstOrNull()?.value ?: 0
-        counterLocalDataSource.updateCounter(
+        counterLocalDataSource.updateOrInsertCounter(
             CounterEntity(value = current + 1)
         )
     }
@@ -26,12 +26,12 @@ class CounterRepositoryImpl(
     override suspend fun decrementCounter() {
         val current = counterLocalDataSource.getCounter()
             .firstOrNull()?.value ?: 0
-        counterLocalDataSource.updateCounter(
+        counterLocalDataSource.updateOrInsertCounter(
             CounterEntity(value = current - 1)
         )
     }
 
     override suspend fun resetCounter() {
-        counterLocalDataSource.updateCounter(CounterEntity(value = 0))
+        counterLocalDataSource.updateOrInsertCounter(CounterEntity(value = 0))
     }
 }

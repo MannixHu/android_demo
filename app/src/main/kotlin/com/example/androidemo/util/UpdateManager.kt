@@ -3,6 +3,7 @@ package com.example.androidemo.util
 import android.app.DownloadManager
 import android.content.Context
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -12,6 +13,7 @@ import com.example.androidemo.data.remote.UpdateService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 data class UpdateInfo(
     val versionName: String,
@@ -25,6 +27,14 @@ class UpdateManager(
     private val context: Context,
     private val updateService: UpdateService
 ) {
+    private val sharedPreferences: SharedPreferences =
+        context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+
+    companion object {
+        private const val KEY_LAST_CHECK_TIME = "last_check_time"
+        private const val KEY_SKIPPED_VERSION = "skipped_version"
+        private const val UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000L // 24小时
+    }
 
     suspend fun checkForUpdates(currentVersion: String): UpdateInfo = withContext(Dispatchers.IO) {
         try {
@@ -53,6 +63,34 @@ class UpdateManager(
                 hasUpdate = false
             )
         }
+    }
+
+    fun shouldCheckForUpdates(): Boolean {
+        val lastCheckTime = sharedPreferences.getLong(KEY_LAST_CHECK_TIME, 0L)
+        val currentTime = System.currentTimeMillis()
+        return (currentTime - lastCheckTime) >= UPDATE_CHECK_INTERVAL
+    }
+
+    fun recordCheckTime() {
+        sharedPreferences.edit()
+            .putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun skipVersion(version: String) {
+        sharedPreferences.edit()
+            .putString(KEY_SKIPPED_VERSION, version)
+            .apply()
+    }
+
+    fun getSkippedVersion(): String? {
+        return sharedPreferences.getString(KEY_SKIPPED_VERSION, null)
+    }
+
+    fun resetSkippedVersion() {
+        sharedPreferences.edit()
+            .remove(KEY_SKIPPED_VERSION)
+            .apply()
     }
 
     private fun selectPreferredApkAsset(assets: List<GithubAsset>): GithubAsset? {
