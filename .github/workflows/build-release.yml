@@ -42,7 +42,7 @@ jobs:
       - name: Create Release Notes
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          cat > /tmp/release_notes.md << 'NOTES'
+          cat > /tmp/release_notes.md << NOTES
           ## Counter App $VERSION
 
           ### Release Information
