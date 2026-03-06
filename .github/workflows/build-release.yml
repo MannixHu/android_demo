@@ -67,99 +67,18 @@ jobs:
           NOTES
 
       - name: Create GitHub Release with APK Files
-        run: python3 << 'PYTHON_EOF'
-import urllib.request
-import urllib.parse
-import json
-import os
-
-VERSION = "${{ steps.version.outputs.VERSION }}"
-REPO = "${{ github.repository }}"
-TOKEN = "${{ secrets.GITHUB_TOKEN }}"
-
-api_url = f"https://api.github.com/repos/{REPO}/releases"
-
-# Create release
-release_data = {
-    "tag_name": VERSION,
-    "name": f"Counter App {VERSION}",
-    "body": "Android Counter App Release",
-    "draft": False,
-    "prerelease": False
-}
-
-print(f"Creating release {VERSION}...")
-req = urllib.request.Request(
-    api_url,
-    data=json.dumps(release_data).encode(),
-    headers={
-        "Authorization": f"token {TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "Content-Type": "application/json"
-    },
-    method="POST"
-)
-
-try:
-    with urllib.request.urlopen(req) as response:
-        release = json.loads(response.read())
-        upload_url = release.get("upload_url", "").split("{")[0]
-        print(f"✅ Release created")
-except urllib.error.HTTPError as e:
-    if e.code == 422:
-        print("Release already exists")
-        # Try to get existing release
-        try:
-            req2 = urllib.request.Request(
-                f"{api_url}/tags/{VERSION}",
-                headers={"Authorization": f"token {TOKEN}"}
-            )
-            with urllib.request.urlopen(req2) as response:
-                release = json.loads(response.read())
-                upload_url = release.get("upload_url", "").split("{")[0]
-        except:
-            print("Could not get release details")
-            exit(1)
-    else:
-        print(f"Failed to create release: {e.code}")
-        print(e.read().decode())
-        exit(1)
-
-if not upload_url:
-    print("No upload URL found")
-    exit(1)
-
-# Upload APK files
-apk_files = [
-    ("app/build/outputs/apk/release/app-release.apk", "app-release.apk"),
-    ("app/build/outputs/apk/debug/app-debug.apk", "app-debug.apk")
-]
-
-for file_path, file_name in apk_files:
-    if not os.path.exists(file_path):
-        print(f"File not found: {file_path}")
-        continue
-
-    print(f"Uploading {file_name}...")
-    with open(file_path, "rb") as f:
-        data = f.read()
-        upload_req = urllib.request.Request(
-            f"{upload_url}?name={file_name}",
-            data=data,
-            headers={
-                "Authorization": f"token {TOKEN}",
-                "Content-Type": "application/vnd.android.package-archive"
-            },
-            method="POST"
-        )
-        try:
-            with urllib.request.urlopen(upload_req) as response:
-                print(f"✅ Uploaded {file_name}")
-        except urllib.error.HTTPError as e:
-            print(f"Failed to upload {file_name}: {e.code}")
-
-print("✅ Release complete")
-PYTHON_EOF
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.version.outputs.VERSION }}
+          name: Counter App ${{ steps.version.outputs.VERSION }}
+          body: "Android Counter App Release"
+          artifacts: |
+            app/build/outputs/apk/release/app-release.apk,
+            app/build/outputs/apk/debug/app-debug.apk
+          artifactContentType: application/vnd.android.package-archive
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Status Check
         run: |
