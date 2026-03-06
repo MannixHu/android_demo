@@ -66,50 +66,75 @@ jobs:
           3. Install the APK on your Android device
           NOTES
 
-      - name: Create GitHub Release
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          REPO="${{ github.repository }}"
-          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+      - name: Create GitHub Release with APK Files
+        run: python3 << 'PYTHON_EOF'
+import requests
+import json
+import os
 
-          # Create release
-          RELEASE_RESPONSE=$(curl -s -X POST \
-            -H "Authorization: token $TOKEN" \
-            -H "Content-Type: application/json" \
-            https://api.github.com/repos/$REPO/releases \
-            -d "{
-              \"tag_name\": \"$VERSION\",
-              \"name\": \"Counter App $VERSION\",
-              \"body\": \"Android Counter App Release\",
-              \"draft\": false,
-              \"prerelease\": false
-            }")
+VERSION = "${{ steps.version.outputs.VERSION }}"
+REPO = "${{ github.repository }}"
+TOKEN = "${{ secrets.GITHUB_TOKEN }}"
 
-          UPLOAD_URL=$(echo "$RELEASE_RESPONSE" | jq -r '.upload_url')
-          if [ -z "$UPLOAD_URL" ] || [ "$UPLOAD_URL" = "null" ]; then
-            echo "❌ Failed to create release"
-            echo "$RELEASE_RESPONSE" | jq '.'
-            exit 1
-          fi
+api_url = f"https://api.github.com/repos/{REPO}/releases"
+headers = {
+    "Authorization": f"token {TOKEN}",
+    "Accept": "application/vnd.github.v3+json"
+}
 
-          # Remove {?name,label} from upload URL
-          UPLOAD_URL="${UPLOAD_URL%\{*}"
+# Create release
+release_data = {
+    "tag_name": VERSION,
+    "name": f"Counter App {VERSION}",
+    "body": "Android Counter App Release",
+    "draft": False,
+    "prerelease": False
+}
 
-          # Upload release APK
-          curl -s -X POST \
-            -H "Authorization: token $TOKEN" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @app/build/outputs/apk/release/app-release.apk \
-            "$UPLOAD_URL?name=app-release.apk"
+print(f"Creating release {VERSION}...")
+response = requests.post(api_url, json=release_data, headers=headers)
 
-          # Upload debug APK
-          curl -s -X POST \
-            -H "Authorization: token $TOKEN" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @app/build/outputs/apk/debug/app-debug.apk \
-            "$UPLOAD_URL?name=app-debug.apk"
+if response.status_code not in [201, 422]:  # 201 = created, 422 = already exists
+    print(f"Failed to create release: {response.status_code}")
+    print(response.json())
+    exit(1)
 
-          echo "✅ Release created with APK files"
+release = response.json()
+upload_url = release.get("upload_url", "").rstrip("}{?name,label}")
+
+if not upload_url:
+    print("No upload URL found")
+    exit(1)
+
+# Upload APK files
+apk_files = [
+    ("app/build/outputs/apk/release/app-release.apk", "app-release.apk"),
+    ("app/build/outputs/apk/debug/app-debug.apk", "app-debug.apk")
+]
+
+for file_path, file_name in apk_files:
+    if not os.path.exists(file_path):
+        print(f"❌ File not found: {file_path}")
+        continue
+
+    print(f"Uploading {file_name}...")
+    with open(file_path, "rb") as f:
+        upload_headers = {
+            "Authorization": f"token {TOKEN}",
+            "Content-Type": "application/vnd.android.package-archive"
+        }
+        upload_response = requests.post(
+            f"{upload_url}?name={file_name}",
+            data=f,
+            headers=upload_headers
+        )
+        if upload_response.status_code == 201:
+            print(f"✅ Uploaded {file_name}")
+        else:
+            print(f"❌ Failed to upload {file_name}: {upload_response.status_code}")
+
+print("✅ Release created with APK files")
+PYTHON_EOF
 
       - name: Build Status Check
         run: |
